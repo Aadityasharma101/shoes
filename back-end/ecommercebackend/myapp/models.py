@@ -1,47 +1,92 @@
 from django.db import models
+from django.contrib.auth.models import User  # Use Django's built-in User model
 
-# Create your models here.
-from django.db import models
 
-# 1. Shoe Category (e.g. Sports, Casual, Formal)
+# Brand Model
+class Brand(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    def __str__(self):
+        return self.name
+
+
+# Category Model
 class Category(models.Model):
-    name = models.CharField(max_length=100)
+    CATEGORY_CHOICES = (
+        ('formal', 'Formal'),
+        ('casual', 'Casual'),
+        ('sports', 'Sports'),
+    )
+    name = models.CharField(max_length=20, choices=CATEGORY_CHOICES, unique=True)
 
     def __str__(self):
-        return self.name
+        return self.get_name_display()
 
-# 2. Shoe Model
-class Shoes(models.Model):
+
+# Product Model
+class Product(models.Model):
     name = models.CharField(max_length=200)
-    brand = models.CharField(max_length=100)
-    category = models.ForeignKey(Category, on_delete=models.CASCADE)
-    size = models.IntegerField()  # Example: 7, 8, 9, etc.
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    stock = models.IntegerField()  # Number of items in stock
     description = models.TextField()
-    image = models.ImageField(upload_to='shoe_images/', blank=True)
-
-    def __str__(self):
-        return f"{self.brand} - {self.name} (Size: {self.size})"
-
-# 3. Customer Model
-class Customer(models.Model):
-    name = models.CharField(max_length=150)
-    email = models.EmailField()
-    phone = models.CharField(max_length=15)
-    address = models.TextField()
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    stock_quantity = models.IntegerField()
+    image_url = models.URLField(blank=True, null=True)
+    brand = models.ForeignKey(Brand, on_delete=models.CASCADE)
+    category = models.ForeignKey(Category, on_delete=models.CASCADE)
+    # vendor = models.ForeignKey(User, on_delete=models.CASCADE)  # Add later if needed
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return self.name
 
-# 4. Order Model
-class Orders(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    shoe = models.ForeignKey(Shoes, on_delete=models.CASCADE)
-    quantity = models.IntegerField()
-    order_date = models.DateTimeField(auto_now_add=True)
-    delivered = models.BooleanField(default=False)
+
+# Order Model
+class Order(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('shipped', 'Shipped'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    )
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    total_price = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Order #{self.id} by {self.customer.name}"
+        return f"Order #{self.id} by {self.user.username}"
 
+
+# OrderItem Model
+class OrderItem(models.Model):
+    order = models.ForeignKey(Order, related_name='items', on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+    price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name}"
+
+
+# Cart Model
+class Cart(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    quantity = models.PositiveIntegerField()
+
+    class Meta:
+        unique_together = ('user', 'product')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.product.name} ({self.quantity})"
+
+
+# Review Model
+class Review(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    rating = models.PositiveSmallIntegerField()  # Rating from 1 to 5
+    comment = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Review by {self.user.username} on {self.product.name}" 
